@@ -1,8 +1,14 @@
 import cv2
 import numpy as np
+import tensorflow as tf
 from PIL import Image
 from keras.models import load_model
 
+physical_devices = tf.config.list_physical_devices('GPU')
+try:
+  tf.config.experimental.set_memory_growth(physical_devices[0], True)
+except:
+  pass
 
 def convert_to_array(img):
     im = cv2.imread(img)
@@ -33,4 +39,4 @@ def predict_cell(file):
     return "The predicted cell is a " + cell + " cell."
 
 
-print(predict_cell('test_cell_images/test.png'))
+print(predict_cell('./dataset/test_cell_images/test.png'))

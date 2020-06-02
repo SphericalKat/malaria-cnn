@@ -5,19 +5,27 @@ import cv2
 import keras
 import numpy as np  # linear algebra
 import sklearn
+import tensorflow as tf
 from PIL import Image
 from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropout
 from keras.models import Sequential
+from keras.backend.tensorflow_backend import set_session
 from sklearn.model_selection import train_test_split
+
+physical_devices = tf.config.list_physical_devices('GPU')
+try:
+  tf.config.experimental.set_memory_growth(physical_devices[0], True)
+except:
+  pass
 
 data = []
 labels = []
 
 # Load infected images
-Parasitized = os.listdir("./train_cell_images/Parasitized/")
+Parasitized = os.listdir("./dataset/train_cell_images/Parasitized/")
 for p in Parasitized:
     try:
-        image = cv2.imread("./train_cell_images/Parasitized/" + p)
+        image = cv2.imread("./dataset/train_cell_images/Parasitized/" + p)
         image_from_array = Image.fromarray(image, 'RGB')
         size_image = image_from_array.resize((50, 50))
         rotated45 = size_image.rotate(45)
@@ -27,18 +35,18 @@ for p in Parasitized:
         data.append(np.array(rotated45))
         data.append(np.array(rotated75))
         data.append(np.array(blur))
-        labels.append(0)
-        labels.append(0)
-        labels.append(0)
-        labels.append(0)
+        labels.append(0.0)
+        labels.append(0.0)
+        labels.append(0.0)
+        labels.append(0.0)
     except AttributeError:
         pass
 
 # Load uninfected images
-Uninfected = os.listdir("./train_cell_images/Uninfected/")
+Uninfected = os.listdir("./dataset/train_cell_images/Uninfected/")
 for u in Uninfected:
     try:
-        image = cv2.imread("./train_cell_images/Uninfected/" + u)
+        image = cv2.imread("./dataset/train_cell_images/Uninfected/" + u)
         image_from_array = Image.fromarray(image, 'RGB')
         size_image = image_from_array.resize((50, 50))
         rotated45 = size_image.rotate(45)
@@ -46,9 +54,9 @@ for u in Uninfected:
         data.append(np.array(size_image))
         data.append(np.array(rotated45))
         data.append(np.array(rotated75))
-        labels.append(1)
-        labels.append(1)
-        labels.append(1)
+        labels.append(1.0)
+        labels.append(1.0)
+        labels.append(1.0)
     except AttributeError:
         pass
 
@@ -56,11 +64,11 @@ for u in Uninfected:
 cells = np.array(data)
 labels = np.array(labels)
 
-# np.save("model/cells", cells)
-# np.save("model/labels", labels)
-#
-# cells = np.load("model/cells.npy")
-# labels = np.load("model/labels.npy")
+np.save("model/cells", cells)
+np.save("model/labels", labels)
+
+cells = np.load("model/cells.npy")
+labels = np.load("model/labels.npy")
 
 # Shuffle cells to prevent some sort of bias
 s = np.arange(cells.shape[0])
@@ -79,11 +87,16 @@ x_test = x_test.astype('float32') / 255
 train_len = len(x_train)
 test_len = len(x_test)
 
-# Convert to one-hot encoding as classifier has binary classes
-y_train = keras.utils.to_categorical(y_train, num_classes)
-y_test = keras.utils.to_categorical(y_test, num_classes)
-
 print(y_test.shape)
+
+callbacks = [
+    keras.callbacks.EarlyStopping(
+        monitor='val_accuracy',
+        min_delta=1e-2,
+        patience=2,
+        verbose=1)
+]
+
 # Create a sequential keras model
 model = Sequential()
 model.add(Conv2D(filters=16, kernel_size=3, padding="same", activation="relu", input_shape=(50, 50, 3)))
@@ -98,13 +111,14 @@ model.add(Dense(1000, activation="relu"))
 model.add(Dropout(0.2))
 model.add(Dense(500, activation="relu"))
 model.add(Dropout(0.2))
-model.add(Dense(2, activation="softmax"))  # 2 represent output layer neurons
+model.add(Dense(1, activation="sigmoid"))  # 2 represent output layer neurons
 model.summary()
+
 # compile the model with loss function as binary_crossentropy and using adam optimizer you can test result by trying
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 # Fit (train) the model. Using a batch size which is x^2 optimizes training on my GPU
-model.fit(x_train, y_train, batch_size=512, epochs=20, verbose=1)
+model.fit(x_train, y_train, batch_size=512, epochs=20, verbose=1, callbacks=callbacks, validation_data=(x_test, y_test))
 
 accuracy = model.evaluate(x_test, y_test, verbose=1)
 print('\n', 'Test_Accuracy: ', accuracy[1])
