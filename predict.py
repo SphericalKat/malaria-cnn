@@ -32,10 +32,7 @@ def predict_cell(file):
     a = [ar]
     a = np.array(a)
     score = model.predict(a, verbose=1)
-    print(score)
-    label_index = np.argmax(score)
-    print(label_index)
-    cell = get_cell_name(label_index)
+    cell = get_cell_name(round(score[0][0]))
     return "The predicted cell is a " + cell + " cell."
 
 
