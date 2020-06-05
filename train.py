@@ -1,15 +1,13 @@
-# Importing Necessary Libraries.
 import os
-
 import cv2
 import keras
-import numpy as np  # linear algebra
+import numpy as np
 import sklearn
 import tensorflow as tf
 from PIL import Image
-from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropout
-from keras.models import Sequential
-from keras.backend.tensorflow_backend import set_session
+from tensorflow.keras.layers import SeparableConv2D, MaxPooling2D, Dense, Dropout, GlobalMaxPooling2D
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -90,28 +88,28 @@ test_len = len(x_test)
 print(y_test.shape)
 
 callbacks = [
-    keras.callbacks.EarlyStopping(
+    EarlyStopping(
         monitor='val_accuracy',
         min_delta=1e-2,
-        patience=2,
+        patience=10,
         verbose=1)
 ]
 
 # Create a sequential keras model
 model = Sequential()
-model.add(Conv2D(filters=16, kernel_size=3, padding="same", activation="relu", input_shape=(50, 50, 3)))
+model.add(SeparableConv2D(filters=8, kernel_size=3, padding="same", activation="relu", input_shape=(50, 50, 3)))
 model.add(MaxPooling2D(pool_size=2))
-model.add(Conv2D(filters=32, kernel_size=3, padding="same", activation="relu"))
+model.add(SeparableConv2D(filters=16, kernel_size=3, padding="same", activation="relu"))
 model.add(MaxPooling2D(pool_size=2))
-model.add(Conv2D(filters=64, kernel_size=3, padding="same", activation="relu"))
+model.add(SeparableConv2D(filters=32, kernel_size=3, padding="same", activation="relu"))
 model.add(MaxPooling2D(pool_size=2))
 model.add(Dropout(0.2))
-model.add(Flatten())
-model.add(Dense(1000, activation="relu"))
+model.add(GlobalMaxPooling2D())
+model.add(Dense(32, activation="relu"))
 model.add(Dropout(0.2))
-model.add(Dense(500, activation="relu"))
+model.add(Dense(16, activation="relu"))
 model.add(Dropout(0.2))
-model.add(Dense(1, activation="sigmoid"))  # 2 represent output layer neurons
+model.add(Dense(1, activation="sigmoid"))
 model.summary()
 
 # compile the model with loss function as binary_crossentropy and using adam optimizer you can test result by trying
@@ -121,6 +119,6 @@ model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']
 model.fit(x_train, y_train, batch_size=512, epochs=20, verbose=1, callbacks=callbacks, validation_data=(x_test, y_test))
 
 accuracy = model.evaluate(x_test, y_test, verbose=1)
-print('\n', 'Test_Accuracy: ', accuracy[1])
+print('\n', 'Validation accuracy: ', accuracy[1])
 
-model.save('./model/cells.h5')
+model.save('model/saved_model.pb')
